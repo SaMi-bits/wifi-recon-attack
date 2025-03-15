@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# -------------------------------------
+# 🚀 Auto WiFi Recon Script for Kali Linux
+# -------------------------------------
+
+# Configuración inicial
+iface="wlan1"
+scan_duration=60  # Tiempo de escaneo en segundos (1 minuto)
+
+echo "⚡️ Iniciando Reconocimiento de Redes WiFi con la Interfaz: $iface"
+
+# 1. Poner la interfaz en modo monitor
+echo "🔄 Activando modo monitor en $iface..."
+sudo ip link set $iface down
+sudo iw dev $iface set type monitor
+sudo ip link set $iface up
+
+# 2. Cambiar la MAC para evitar detección
+echo "🔄 Cambiando MAC para anonimato..."
+sudo macchanger -r $iface
+
+# 3. Ejecutar airodump-ng durante 1 minuto
+echo "🔍 Escaneando redes WiFi durante $scan_duration segundos..."
+sudo timeout ${scan_duration}s airodump-ng $iface --write wifi_recon --output-format csv
+
+# Verificar si el archivo se generó correctamente
+if [[ -f wifi_recon-01.csv ]]; then
+    echo "✅ Escaneo con airodump-ng completado. Resultados:"
+    cat wifi_recon-01.csv
+else
+    echo "❌ Error: No se generó el archivo de resultados de airodump-ng."
+fi
+
+# 4. Ejecutar bettercap durante 1 minuto
+echo "🕵️ Ejecutando bettercap para escaneo profundo..."
+sudo timeout ${scan_duration}s bettercap -iface $iface -eval "net.probe on; net.recon on; sleep 10; net.show"
+
+# Verificar si bettercap tuvo éxito
+if [ $? -eq 0 ]; then
+    echo "✅ Bettercap finalizó correctamente."
+else
+    echo "❌ Error: Bettercap no pudo ejecutarse correctamente. Verifica la interfaz o los permisos."
+fi
+
+# 5. Restaurar la interfaz a modo managed
+echo "🔄 Restaurando interfaz $iface a modo managed..."
+sudo ip link set $iface down
+sudo iw dev $iface set type managed
+sudo ip link set $iface up
+
+echo "✅ Proceso de reconocimiento finalizado."
